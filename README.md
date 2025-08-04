@@ -20,36 +20,41 @@ A Python application that fetches the latest tech/AI articles from RSS feeds, su
 ## Installation
 
 1. Clone the repository:
-   ```bash
-   git clone https://github.com/yourusername/daily-digest.git
-   cd daily-digest
-   ```
+
+```bash
+git clone https://github.com/yourusername/daily-digest.git
+cd daily-digest
+```
 
 2. Create and activate a virtual environment:
-   ```bash
-   python -m venv venv
-   source venv/bin/activate  # On Windows: venv\Scripts\activate
-   ```
+
+```bash
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+```
 
 3. Install dependencies:
-   ```bash
-   pip install -r requirements.txt
-   ```
+
+```bash
+pip install -r requirements.txt
+```
 
 4. Create a `.env` file with your configuration:
-   ```env
-   OPENAI_API_KEY=your_openai_api_key
-   SLACK_WEBHOOK_URL=your_slack_webhook_url
-   EMAIL_FROM=your_email@gmail.com
-   EMAIL_TO=recipient@example.com
-   ```
+
+```env
+OPENAI_API_KEY=your_openai_api_key
+SLACK_WEBHOOK_URL=your_slack_webhook_url
+EMAIL_FROM=your_email@gmail.com
+EMAIL_TO=recipient@example.com
+```
 
 ## Usage
 
 1. Run the application:
-   ```bash
-   python main.py
-   ```
+
+```bash
+python main.py
+```
 
 2. Access the web interface at `http://localhost:8000`
 
@@ -57,7 +62,7 @@ A Python application that fetches the latest tech/AI articles from RSS feeds, su
 
 ## Configuration
 
-Edit `rss_sources.py` to add or modify the list of RSS feeds to monitor.
+Edit `resources.py` to add or modify the list of RSS feeds to monitor.
 
 ## Scheduled Runs
 
