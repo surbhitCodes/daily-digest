@@ -1,0 +1,10 @@
+aiosmtplib
+email-validator
+feedparser
+fastapi
+python-dotenv
+apscheduler
+uvicorn
+openai
+python-magic
+aiohttp
