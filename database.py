@@ -51,14 +51,18 @@ def add_user(email: str, slack_webhook_url: str, timezone: str = "UTC", schedule
             VALUES (?, ?, ?, ?, ?)
         ''', (user_id, email, slack_webhook_url, timezone, schedule_hour))
         
-        # Add default feeds for new user
+        # Add default feeds for new user (more feeds for 10+ articles)
         default_feeds = [
             ("https://www.langchain.dev/rss.xml", "LangChain Blog"),
             ("https://openai.com/blog/rss.xml", "OpenAI Blog"),
             ("https://pythonweekly.com/rss", "Python Weekly"),
             ("https://huggingface.co/blog/feed.xml", "Hugging Face Blog"),
             ("https://thehackernews.com/rss.xml", "The Hacker News"),
-            ("https://javascriptweekly.com/rss", "JavaScript Weekly")
+            ("https://javascriptweekly.com/rss", "JavaScript Weekly"),
+            ("https://techcrunch.com/feed/", "TechCrunch"),
+            ("https://feeds.arstechnica.com/arstechnica/index", "Ars Technica"),
+            ("https://www.wired.com/feed/rss", "Wired"),
+            ("https://venturebeat.com/feed/", "VentureBeat")
         ]
         
         for feed_url, feed_name in default_feeds:

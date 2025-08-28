@@ -2,4 +2,5 @@
 venv
 .venv
 .vscodes
+__pycache__
 connect_mail.json

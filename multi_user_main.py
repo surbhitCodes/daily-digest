@@ -42,7 +42,9 @@ async def fetch_articles_for_user(user_id: str):
             {"url": "https://www.langchain.dev/rss.xml", "name": "LangChain Blog"},
             {"url": "https://openai.com/blog/rss.xml", "name": "OpenAI Blog"},
             {"url": "https://pythonweekly.com/rss", "name": "Python Weekly"},
-            {"url": "https://huggingface.co/blog/feed.xml", "name": "Hugging Face Blog"}
+            {"url": "https://huggingface.co/blog/feed.xml", "name": "Hugging Face Blog"},
+            {"url": "https://techcrunch.com/feed/", "name": "TechCrunch"},
+            {"url": "https://feeds.arstechnica.com/arstechnica/index", "name": "Ars Technica"}
         ]
     
     articles = []
@@ -50,12 +52,12 @@ async def fetch_articles_for_user(user_id: str):
         try:
             feed_url = feed['url'] if isinstance(feed, dict) else feed
             parsed_feed = feedparser.parse(feed_url)
-            articles.extend(parsed_feed.entries[:2])  # Get 2 articles per feed
+            articles.extend(parsed_feed.entries[:3])  # Get 3 articles per feed
         except Exception as e:
             print(f"Error fetching feed {feed_url}: {e}")
             continue
     
-    return [{"title": e.title, "link": e.link} for e in articles[:8]]  # Max 8 articles
+    return [{"title": e.title, "link": e.link} for e in articles[:12]]  # Max 12 articles
 
 async def send_digest_to_user(user: dict):
     """Send digest to a specific user"""
@@ -112,7 +114,10 @@ async def hourly_digest_check():
 
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request):
-    return templates.TemplateResponse("index.html", {"request": request})
+    return templates.TemplateResponse("index.html", {
+        "request": request,
+        "contact_email": os.getenv("CONTACT_EMAIL", "get.tech.updated@gmail.com")
+    })
 
 @app.get("/health")
 async def health_check():
@@ -153,7 +158,8 @@ async def success(request: Request, user_id: str):
     return templates.TemplateResponse("success.html", {
         "request": request, 
         "user": user,
-        "trigger_url": f"{request.base_url}trigger/{user_id}"
+        "trigger_url": f"{request.base_url}trigger/{user_id}",
+        "contact_email": os.getenv("CONTACT_EMAIL", "get.tech.updated@gmail.com")
     })
 
 @app.get("/trigger/{user_id}")
@@ -177,7 +183,8 @@ async def manage_feeds(request: Request, user_id: str):
     return templates.TemplateResponse("manage.html", {
         "request": request,
         "user": user,
-        "feeds": feeds
+        "feeds": feeds,
+        "contact_email": os.getenv("CONTACT_EMAIL", "get.tech.updated@gmail.com")
     })
 
 @app.post("/manage/{user_id}/add-feed")

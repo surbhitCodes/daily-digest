@@ -8,7 +8,7 @@ client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 async def summarize_articles(articles):
     # Create a more structured prompt that preserves links
     article_list = []
-    for i, article in enumerate(articles[:8], 1):
+    for i, article in enumerate(articles[:12], 1):
         article_list.append(f"{i}. {article['title']}\n   Link: {article['link']}")
     
     combined_text = "\n\n".join(article_list)
@@ -34,7 +34,7 @@ Please maintain this format exactly and include all the links."""
     
     # Fallback: If AI summary doesn't have proper links, create formatted version
     if "🔗" not in ai_summary or "[Read more]" not in ai_summary:
-        return format_articles_with_links(articles[:8], ai_summary)
+        return format_articles_with_links(articles[:12], ai_summary)
     
     return ai_summary
 
