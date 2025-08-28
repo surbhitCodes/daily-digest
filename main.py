@@ -6,6 +6,8 @@ from summarizer import summarize_articles
 from notifier import notify
 from apscheduler.schedulers.background import BackgroundScheduler
 import asyncio
+import os
+from fastapi.responses import HTMLResponse
 
 scheduler = BackgroundScheduler()
 
@@ -62,4 +64,5 @@ async def root():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("main:app", host="0.0.0.0", port=8888, reload=True)
+    port = int(os.environ.get("PORT", 8888))
+    uvicorn.run("main:app", host="0.0.0.0", port=port, reload=False)

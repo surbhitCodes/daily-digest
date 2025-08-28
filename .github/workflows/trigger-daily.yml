@@ -1,0 +1,19 @@
+name: Daily Digest Trigger
+
+on:
+  schedule:
+    # Runs daily at 8:00 AM UTC (adjust timezone as needed)
+    - cron: '0 8 * * *'
+  workflow_dispatch: # Allows manual triggering
+
+jobs:
+  trigger-digest:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Daily Digest
+        run: |
+          curl -X GET "${{ secrets.APP_URL }}/trigger" \
+            -H "Content-Type: application/json" \
+            --fail --silent --show-error
+        env:
+          APP_URL: ${{ secrets.APP_URL }}

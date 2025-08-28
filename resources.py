@@ -4,5 +4,6 @@ RSS_FEEDS = [
     "https://pythonweekly.com/rss",
     "https://javascriptweekly.com/rss",
     "https://www.fastapi.tiangolo.com/feed.xml",
-    "https://huggingface.co/blog/feed.xml"
+    "https://huggingface.co/blog/feed.xml",
+    "https://thehackernews.com/rss.xml"
 ]
