@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: ai-daily-digest
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn multi_user_main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: OPENAI_API_KEY
+        sync: false

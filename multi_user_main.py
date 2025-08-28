@@ -17,8 +17,9 @@ templates = Jinja2Templates(directory="templates")
 
 def start_scheduler():
     # Run digest job every hour and check which users need their digest
-    scheduler.add_job(run_hourly_digest_check, "cron", minute=0)
-    scheduler.start()
+    if not scheduler.running:
+        scheduler.add_job(run_hourly_digest_check, "cron", minute=0)
+        scheduler.start()
 
 def stop_scheduler():
     scheduler.shutdown()
@@ -100,6 +101,11 @@ async def hourly_digest_check():
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
+
+@app.get("/health")
+async def health_check():
+    """Health check endpoint for Railway"""
+    return {"status": "healthy", "message": "AI Daily Digest is running"}
 
 @app.post("/register")
 async def register_user(
