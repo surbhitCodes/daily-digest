@@ -66,10 +66,14 @@ async def send_digest_to_user(user: dict):
         
         summary = await summarize_articles(articles)
         
-        # Send to user's Slack webhook
+        # Send to user's Slack webhook with proper formatting
+        slack_message = f"🤖 *Daily AI/Tech Digest for {user['email']}*\n\n{summary}"
+        
         async with aiohttp.ClientSession() as session:
             await session.post(user['slack_webhook_url'], json={
-                "text": f"🤖 *Daily AI/Tech Digest for {user['email']}*\n\n{summary}"
+                "text": slack_message,
+                "unfurl_links": True,
+                "unfurl_media": True
             })
         
         # Also send email notification
