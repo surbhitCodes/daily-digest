@@ -29,6 +29,8 @@ def init_db():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_id TEXT NOT NULL,
             feed_url TEXT NOT NULL,
+            feed_name TEXT,
+            active BOOLEAN DEFAULT 1,
             FOREIGN KEY (user_id) REFERENCES users (id),
             UNIQUE(user_id, feed_url)
         )
@@ -51,18 +53,19 @@ def add_user(email: str, slack_webhook_url: str, timezone: str = "UTC", schedule
         
         # Add default feeds for new user
         default_feeds = [
-            "https://www.langchain.dev/rss.xml",
-            "https://openai.com/blog/rss.xml",
-            "https://pythonweekly.com/rss",
-            "https://huggingface.co/blog/feed.xml",
-            "https://thehackernews.com/rss.xml"
+            ("https://www.langchain.dev/rss.xml", "LangChain Blog"),
+            ("https://openai.com/blog/rss.xml", "OpenAI Blog"),
+            ("https://pythonweekly.com/rss", "Python Weekly"),
+            ("https://huggingface.co/blog/feed.xml", "Hugging Face Blog"),
+            ("https://thehackernews.com/rss.xml", "The Hacker News"),
+            ("https://javascriptweekly.com/rss", "JavaScript Weekly")
         ]
         
-        for feed_url in default_feeds:
+        for feed_url, feed_name in default_feeds:
             cursor.execute('''
-                INSERT OR IGNORE INTO user_feeds (user_id, feed_url)
-                VALUES (?, ?)
-            ''', (user_id, feed_url))
+                INSERT OR IGNORE INTO user_feeds (user_id, feed_url, feed_name)
+                VALUES (?, ?, ?)
+            ''', (user_id, feed_url, feed_name))
         
         conn.commit()
         return user_id
@@ -94,16 +97,24 @@ def get_all_active_users() -> List[Dict]:
     conn.close()
     return users
 
-def get_user_feeds(user_id: str) -> List[str]:
+def get_user_feeds(user_id: str) -> List[Dict]:
     """Get RSS feeds for a specific user"""
     conn = sqlite3.connect(DATABASE_URL)
     cursor = conn.cursor()
     
     cursor.execute('''
-        SELECT feed_url FROM user_feeds WHERE user_id = ?
+        SELECT id, feed_url, feed_name, active FROM user_feeds WHERE user_id = ? AND active = 1
     ''', (user_id,))
     
-    feeds = [row[0] for row in cursor.fetchall()]
+    feeds = []
+    for row in cursor.fetchall():
+        feeds.append({
+            'id': row[0],
+            'url': row[1],
+            'name': row[2] or row[1],
+            'active': row[3]
+        })
+    
     conn.close()
     return feeds
 
@@ -143,6 +154,58 @@ def get_user_by_id(user_id: str) -> Optional[Dict]:
     
     conn.close()
     return None
+
+def add_user_feed(user_id: str, feed_url: str, feed_name: str = None) -> bool:
+    """Add a new RSS feed for a user"""
+    conn = sqlite3.connect(DATABASE_URL)
+    cursor = conn.cursor()
+    
+    try:
+        cursor.execute('''
+            INSERT INTO user_feeds (user_id, feed_url, feed_name)
+            VALUES (?, ?, ?)
+        ''', (user_id, feed_url, feed_name or feed_url))
+        conn.commit()
+        return True
+    except sqlite3.IntegrityError:
+        return False
+    finally:
+        conn.close()
+
+def remove_user_feed(user_id: str, feed_id: int) -> bool:
+    """Remove an RSS feed for a user"""
+    conn = sqlite3.connect(DATABASE_URL)
+    cursor = conn.cursor()
+    
+    cursor.execute('''
+        DELETE FROM user_feeds WHERE id = ? AND user_id = ?
+    ''', (feed_id, user_id))
+    
+    success = cursor.rowcount > 0
+    conn.commit()
+    conn.close()
+    return success
+
+def get_all_user_feeds(user_id: str) -> List[Dict]:
+    """Get all RSS feeds for a user (including inactive)"""
+    conn = sqlite3.connect(DATABASE_URL)
+    cursor = conn.cursor()
+    
+    cursor.execute('''
+        SELECT id, feed_url, feed_name, active FROM user_feeds WHERE user_id = ?
+    ''', (user_id,))
+    
+    feeds = []
+    for row in cursor.fetchall():
+        feeds.append({
+            'id': row[0],
+            'url': row[1],
+            'name': row[2] or row[1],
+            'active': bool(row[3])
+        })
+    
+    conn.close()
+    return feeds
 
 # Initialize database on import
 init_db()

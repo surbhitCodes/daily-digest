@@ -64,8 +64,18 @@
             
             <div style="margin-top: 2rem; padding: 1rem; background: #edf2f7; border-radius: 8px;">
                 <p style="color: #4a5568; font-size: 0.9rem;">
-                    <strong>Bookmark this page!</strong> Your unique test URL is: <br>
-                    <code style="background: white; padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.8rem;">{{ trigger_url }}</code>
+                    <strong>Bookmark these URLs:</strong><br>
+                    <strong>Test Digest:</strong> <code style="background: white; padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.8rem;">{{ trigger_url }}</code><br>
+                    <strong>Manage Feeds:</strong> <code style="background: white; padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.8rem;">{{ request.base_url }}manage/{{ user.id }}</code>
+                </p>
+            </div>
+            
+            <div style="margin-top: 1rem; padding: 1rem; background: #f8f9fa; border-radius: 8px; text-align: center;">
+                <p style="color: #6c757d; font-size: 0.9rem; margin-bottom: 0.5rem;">
+                    Need help? Contact us at <a href="mailto:me@surbhitkumar.com" style="color: #667eea; text-decoration: none;">me@surbhitkumar.com</a>
+                </p>
+                <p style="color: #adb5bd; font-size: 0.8rem; margin: 0;">
+                    © 2025 AI Daily Digest. Built with ❤️ for the tech community.
                 </p>
             </div>
         </div>

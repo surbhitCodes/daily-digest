@@ -4,7 +4,8 @@ from fastapi.templating import Jinja2Templates
 from contextlib import asynccontextmanager
 import feedparser
 from summarizer import summarize_articles
-from database import add_user, get_all_active_users, get_user_feeds, update_last_digest_sent, get_user_by_id
+from database import add_user, get_all_active_users, get_user_feeds, update_last_digest_sent, get_user_by_id, add_user_feed, remove_user_feed, get_all_user_feeds
+from notifier import send_simple_email
 from apscheduler.schedulers.background import BackgroundScheduler
 import asyncio
 import os
@@ -38,19 +39,20 @@ async def fetch_articles_for_user(user_id: str):
     if not feeds:
         # Fallback to default feeds if user has none
         feeds = [
-            "https://www.langchain.dev/rss.xml",
-            "https://openai.com/blog/rss.xml",
-            "https://pythonweekly.com/rss",
-            "https://huggingface.co/blog/feed.xml"
+            {"url": "https://www.langchain.dev/rss.xml", "name": "LangChain Blog"},
+            {"url": "https://openai.com/blog/rss.xml", "name": "OpenAI Blog"},
+            {"url": "https://pythonweekly.com/rss", "name": "Python Weekly"},
+            {"url": "https://huggingface.co/blog/feed.xml", "name": "Hugging Face Blog"}
         ]
     
     articles = []
-    for url in feeds:
+    for feed in feeds:
         try:
-            feed = feedparser.parse(url)
-            articles.extend(feed.entries[:2])  # Get 2 articles per feed
+            feed_url = feed['url'] if isinstance(feed, dict) else feed
+            parsed_feed = feedparser.parse(feed_url)
+            articles.extend(parsed_feed.entries[:2])  # Get 2 articles per feed
         except Exception as e:
-            print(f"Error fetching feed {url}: {e}")
+            print(f"Error fetching feed {feed_url}: {e}")
             continue
     
     return [{"title": e.title, "link": e.link} for e in articles[:8]]  # Max 8 articles
@@ -69,6 +71,12 @@ async def send_digest_to_user(user: dict):
             await session.post(user['slack_webhook_url'], json={
                 "text": f"🤖 *Daily AI/Tech Digest for {user['email']}*\n\n{summary}"
             })
+        
+        # Also send email notification
+        try:
+            await send_simple_email(summary, user['email'])
+        except Exception as e:
+            print(f"Email notification failed for {user['email']}: {e}")
         
         update_last_digest_sent(user['id'])
         print(f"Digest sent to {user['email']}")
@@ -153,6 +161,49 @@ async def trigger_user_digest(user_id: str):
     
     await send_digest_to_user(user)
     return {"message": f"Digest sent to {user['email']}"}
+
+@app.get("/manage/{user_id}", response_class=HTMLResponse)
+async def manage_feeds(request: Request, user_id: str):
+    """Manage RSS feeds for a user"""
+    user = get_user_by_id(user_id)
+    if not user:
+        raise HTTPException(404, "User not found")
+    
+    feeds = get_all_user_feeds(user_id)
+    return templates.TemplateResponse("manage.html", {
+        "request": request,
+        "user": user,
+        "feeds": feeds
+    })
+
+@app.post("/manage/{user_id}/add-feed")
+async def add_feed(user_id: str, feed_url: str = Form(...), feed_name: str = Form(...)):
+    """Add a new RSS feed for a user"""
+    user = get_user_by_id(user_id)
+    if not user:
+        raise HTTPException(404, "User not found")
+    
+    if not feed_url.startswith(('http://', 'https://')):
+        raise HTTPException(400, "Invalid feed URL")
+    
+    success = add_user_feed(user_id, feed_url, feed_name)
+    if not success:
+        raise HTTPException(400, "Feed already exists")
+    
+    return RedirectResponse(url=f"/manage/{user_id}", status_code=303)
+
+@app.post("/manage/{user_id}/remove-feed/{feed_id}")
+async def remove_feed(user_id: str, feed_id: int):
+    """Remove an RSS feed for a user"""
+    user = get_user_by_id(user_id)
+    if not user:
+        raise HTTPException(404, "User not found")
+    
+    success = remove_user_feed(user_id, feed_id)
+    if not success:
+        raise HTTPException(404, "Feed not found")
+    
+    return RedirectResponse(url=f"/manage/{user_id}", status_code=303)
 
 @app.get("/stats")
 async def get_stats():
