@@ -39,8 +39,7 @@ async def job():
 def run_daily_job():
     asyncio.run(job())
 
-@app.get("/trigger")
-@app.post("/trigger")
+@app.get("/trigger", response_class=HTMLResponse)
 async def trigger_digest():
     await job()
     html_content = """
