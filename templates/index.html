@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Daily Digest - Get Your Tech News</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; }
+        .container { max-width: 600px; margin: 0 auto; padding: 2rem; }
+        .card { background: white; border-radius: 12px; padding: 2rem; box-shadow: 0 10px 30px rgba(0,0,0,0.1); }
+        h1 { color: #2d3748; margin-bottom: 0.5rem; font-size: 2.5rem; text-align: center; }
+        .subtitle { text-align: center; color: #718096; margin-bottom: 2rem; font-size: 1.1rem; }
+        .form-group { margin-bottom: 1.5rem; }
+        label { display: block; margin-bottom: 0.5rem; font-weight: 600; color: #4a5568; }
+        input, select { width: 100%; padding: 0.75rem; border: 2px solid #e2e8f0; border-radius: 8px; font-size: 1rem; transition: border-color 0.3s; }
+        input:focus, select:focus { outline: none; border-color: #667eea; }
+        button { width: 100%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 1rem; border: none; border-radius: 8px; font-size: 1.1rem; font-weight: 600; cursor: pointer; transition: transform 0.2s; }
+        button:hover { transform: translateY(-2px); }
+        .help-text { font-size: 0.9rem; color: #718096; margin-top: 0.5rem; }
+        .features { margin-top: 2rem; }
+        .feature { display: flex; align-items: center; margin-bottom: 1rem; }
+        .feature-icon { width: 20px; height: 20px; margin-right: 1rem; color: #667eea; }
+        .slack-help { background: #f7fafc; padding: 1rem; border-radius: 8px; margin-top: 1rem; }
+        .slack-help h3 { color: #2d3748; margin-bottom: 0.5rem; }
+        .slack-help ol { margin-left: 1.5rem; }
+        .slack-help li { margin-bottom: 0.5rem; color: #4a5568; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="card">
+            <h1>🤖 AI Daily Digest</h1>
+            <p class="subtitle">Get personalized AI & tech news delivered to your Slack every day</p>
+            
+            <form action="/register" method="post">
+                <div class="form-group">
+                    <label for="email">Your Email</label>
+                    <input type="email" id="email" name="email" required placeholder="your@email.com">
+                </div>
+                
+                <div class="form-group">
+                    <label for="slack_webhook_url">Slack Webhook URL</label>
+                    <input type="url" id="slack_webhook_url" name="slack_webhook_url" required 
+                           placeholder="https://hooks.slack.com/services/...">
+                    <div class="help-text">Don't have one? See instructions below ⬇️</div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="timezone">Your Timezone</label>
+                    <select id="timezone" name="timezone">
+                        <option value="UTC">UTC</option>
+                        <option value="US/Eastern">US Eastern</option>
+                        <option value="US/Central">US Central</option>
+                        <option value="US/Mountain">US Mountain</option>
+                        <option value="US/Pacific">US Pacific</option>
+                        <option value="Europe/London">Europe/London</option>
+                        <option value="Europe/Paris">Europe/Paris</option>
+                        <option value="Asia/Tokyo">Asia/Tokyo</option>
+                        <option value="Asia/Shanghai">Asia/Shanghai</option>
+                        <option value="Asia/Kolkata">Asia/Kolkata</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="schedule_hour">Daily Digest Time (24-hour format)</label>
+                    <select id="schedule_hour" name="schedule_hour">
+                        <option value="6">06:00 (6 AM)</option>
+                        <option value="7">07:00 (7 AM)</option>
+                        <option value="8" selected>08:00 (8 AM)</option>
+                        <option value="9">09:00 (9 AM)</option>
+                        <option value="10">10:00 (10 AM)</option>
+                        <option value="12">12:00 (12 PM)</option>
+                        <option value="18">18:00 (6 PM)</option>
+                    </select>
+                </div>
+                
+                <button type="submit">🚀 Start My Daily Digest</button>
+            </form>
+            
+            <div class="features">
+                <h3 style="margin-bottom: 1rem; color: #2d3748;">What you'll get:</h3>
+                <div class="feature">
+                    <span class="feature-icon">📰</span>
+                    <span>Latest articles from OpenAI, LangChain, Hugging Face, and more</span>
+                </div>
+                <div class="feature">
+                    <span class="feature-icon">🤖</span>
+                    <span>AI-powered summaries of the most important tech news</span>
+                </div>
+                <div class="feature">
+                    <span class="feature-icon">⏰</span>
+                    <span>Delivered daily at your preferred time in your timezone</span>
+                </div>
+                <div class="feature">
+                    <span class="feature-icon">💬</span>
+                    <span>Sent directly to your Slack workspace</span>
+                </div>
+            </div>
+            
+            <div class="slack-help">
+                <h3>🔗 How to get your Slack Webhook URL:</h3>
+                <ol>
+                    <li>Go to <a href="https://api.slack.com/apps" target="_blank">api.slack.com/apps</a></li>
+                    <li>Click "Create New App" → "From scratch"</li>
+                    <li>Name your app (e.g., "AI Digest") and select your workspace</li>
+                    <li>Go to "Incoming Webhooks" → Toggle "Activate Incoming Webhooks" ON</li>
+                    <li>Click "Add New Webhook to Workspace"</li>
+                    <li>Choose the channel where you want digests sent</li>
+                    <li>Copy the webhook URL and paste it above</li>
+                </ol>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Welcome to AI Daily Digest!</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; }
+        .container { max-width: 600px; margin: 0 auto; padding: 2rem; }
+        .card { background: white; border-radius: 12px; padding: 2rem; box-shadow: 0 10px 30px rgba(0,0,0,0.1); text-align: center; }
+        .success-icon { font-size: 4rem; margin-bottom: 1rem; }
+        h1 { color: #2d3748; margin-bottom: 1rem; font-size: 2rem; }
+        .user-info { background: #f7fafc; padding: 1.5rem; border-radius: 8px; margin: 1.5rem 0; text-align: left; }
+        .user-info h3 { color: #2d3748; margin-bottom: 1rem; }
+        .info-row { display: flex; justify-content: space-between; margin-bottom: 0.5rem; }
+        .info-label { font-weight: 600; color: #4a5568; }
+        .info-value { color: #718096; }
+        .test-button { display: inline-block; background: linear-gradient(135deg, #48bb78 0%, #38a169 100%); color: white; padding: 1rem 2rem; border: none; border-radius: 8px; text-decoration: none; font-weight: 600; margin: 1rem 0; transition: transform 0.2s; }
+        .test-button:hover { transform: translateY(-2px); }
+        .next-steps { text-align: left; margin-top: 2rem; }
+        .step { margin-bottom: 1rem; padding-left: 1.5rem; position: relative; }
+        .step::before { content: "✓"; position: absolute; left: 0; color: #48bb78; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="card">
+            <div class="success-icon">🎉</div>
+            <h1>You're all set!</h1>
+            <p>Your AI Daily Digest has been configured successfully.</p>
+            
+            <div class="user-info">
+                <h3>Your Configuration:</h3>
+                <div class="info-row">
+                    <span class="info-label">Email:</span>
+                    <span class="info-value">{{ user.email }}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Timezone:</span>
+                    <span class="info-value">{{ user.timezone }}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Daily Time:</span>
+                    <span class="info-value">{{ "%02d:00"|format(user.schedule_hour) }}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Status:</span>
+                    <span class="info-value">Active ✅</span>
+                </div>
+            </div>
+            
+            <a href="{{ trigger_url }}" class="test-button" target="_blank">
+                🧪 Test Your Digest Now
+            </a>
+            
+            <div class="next-steps">
+                <h3 style="color: #2d3748; margin-bottom: 1rem;">What happens next:</h3>
+                <div class="step">Your first digest will be sent tomorrow at your scheduled time</div>
+                <div class="step">You'll receive summaries of the latest AI/tech articles</div>
+                <div class="step">All digests will be delivered to your Slack channel</div>
+                <div class="step">You can test anytime using the button above</div>
+            </div>
+            
+            <div style="margin-top: 2rem; padding: 1rem; background: #edf2f7; border-radius: 8px;">
+                <p style="color: #4a5568; font-size: 0.9rem;">
+                    <strong>Bookmark this page!</strong> Your unique test URL is: <br>
+                    <code style="background: white; padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.8rem;">{{ trigger_url }}</code>
+                </p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
