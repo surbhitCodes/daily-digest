@@ -78,7 +78,6 @@ async def send_digest_to_user(user: dict):
                 "unfurl_media": True
             })
         
-        # Also send email notification
         try:
             await send_simple_email(summary, user['email'])
         except Exception as e:
@@ -161,6 +160,12 @@ async def success(request: Request, user_id: str):
         "trigger_url": f"{request.base_url}trigger/{user_id}",
         "contact_email": os.getenv("CONTACT_EMAIL", "get.tech.updated@gmail.com")
     })
+
+@app.get("/trigger")
+async def trigger_scheduled_digests():
+    """Check and send digests to users whose scheduled time has arrived"""
+    await hourly_digest_check()
+    return {"message": "Scheduled digest check completed"}
 
 @app.get("/trigger/{user_id}")
 async def trigger_user_digest(user_id: str):
