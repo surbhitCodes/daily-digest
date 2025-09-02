@@ -101,14 +101,14 @@ async def hourly_digest_check():
     
     for user in users:
         try:
-            # Convert current UTC time to user's timezone
             user_tz = pytz.timezone(user['timezone'])
             user_time = current_utc.astimezone(user_tz)
             
-            # Check if it's the user's scheduled hour
             if user_time.hour == user['schedule_hour']:
-                await send_digest_to_user(user)
+                await asyncio.wait_for(send_digest_to_user(user), timeout=30.0)
                 
+        except asyncio.TimeoutError:
+            print(f"Digest for {user['email']} timed out after 30 seconds")
         except Exception as e:
             print(f"Error processing user {user['email']}: {e}")
 

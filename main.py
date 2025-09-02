@@ -39,7 +39,12 @@ async def job():
     await notify(summary)
 
 def run_daily_job():
-    asyncio.run(job())
+    try:
+        asyncio.run(asyncio.wait_for(job(), timeout=30.0))
+    except asyncio.TimeoutError:
+        print("Job execution timed out after 30 seconds")
+    except Exception as e:
+        print(f"Error in daily job: {e}")
 
 @app.get("/trigger", response_class=HTMLResponse)
 async def trigger_digest():
