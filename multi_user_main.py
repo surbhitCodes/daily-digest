@@ -94,7 +94,7 @@ def run_hourly_digest_check():
     asyncio.run(hourly_digest_check())
 
 async def hourly_digest_check():
-    """Send digests to users whose local time matches their scheduled hour"""
+    """Send digests to users whose local time matches their scheduled hour and haven't received today's digest"""
     users = get_all_active_users()
     current_utc = datetime.now(pytz.UTC)
     
@@ -103,13 +103,36 @@ async def hourly_digest_check():
             user_tz = pytz.timezone(user['timezone'])
             user_time = current_utc.astimezone(user_tz)
             
-            if user_time.hour == user['schedule_hour']:
+            # Check if it's the user's scheduled hour and they haven't received today's digest
+            if user_time.hour == user['schedule_hour'] and should_send_digest_today(user, user_time):
+                print(f"Sending digest to {user['email']} at {user_time.strftime('%Y-%m-%d %H:%M %Z')}")
                 await asyncio.wait_for(send_digest_to_user(user), timeout=30.0)
+            else:
+                # Log why digest wasn't sent for debugging
+                if user_time.hour != user['schedule_hour']:
+                    print(f"Skipping {user['email']}: current hour {user_time.hour} != scheduled hour {user['schedule_hour']}")
+                else:
+                    print(f"Skipping {user['email']}: already received today's digest")
                 
         except asyncio.TimeoutError:
             print(f"Digest for {user['email']} timed out after 30 seconds")
         except Exception as e:
             print(f"Error processing user {user['email']}: {e}")
+
+def should_send_digest_today(user: dict, user_time: datetime) -> bool:
+    """Check if user should receive digest today based on last_digest_sent"""
+    if not user.get('last_digest_sent'):
+        return True  # Never sent before
+    
+    try:
+        last_sent = datetime.fromisoformat(user['last_digest_sent'].replace('Z', '+00:00'))
+        last_sent_user_tz = last_sent.astimezone(user_time.tzinfo)
+        
+        # Check if last digest was sent on a different date in user's timezone
+        return last_sent_user_tz.date() != user_time.date()
+    except Exception as e:
+        print(f"Error parsing last_digest_sent for {user['email']}: {e}")
+        return True  # Send if we can't parse the date
 
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request):
@@ -164,8 +187,26 @@ async def success(request: Request, user_id: str):
 @app.get("/trigger")
 async def trigger_scheduled_digests():
     """Check and send digests to users whose scheduled time has arrived"""
-    await hourly_digest_check()
-    return {"message": "Scheduled digest check completed"}
+    try:
+        users = get_all_active_users()
+        current_utc = datetime.now(pytz.UTC)
+        
+        print(f"Starting digest check at {current_utc.strftime('%Y-%m-%d %H:%M:%S UTC')} for {len(users)} users")
+        
+        await hourly_digest_check()
+        
+        return {
+            "message": "Scheduled digest check completed",
+            "timestamp": current_utc.isoformat(),
+            "users_checked": len(users)
+        }
+    except Exception as e:
+        print(f"Error in trigger_scheduled_digests: {e}")
+        return {
+            "message": "Digest check failed",
+            "error": str(e),
+            "timestamp": datetime.now(pytz.UTC).isoformat()
+        }
 
 @app.get("/trigger/{user_id}")
 async def trigger_user_digest(user_id: str):

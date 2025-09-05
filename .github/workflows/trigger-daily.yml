@@ -2,6 +2,7 @@ name: Daily Digest Trigger
 
 on:
   schedule:
+    # Run every hour to check for users who need their digest
     - cron: '0 * * * *'
   workflow_dispatch:
 
@@ -9,10 +10,23 @@ jobs:
   trigger-digest:
     runs-on: ubuntu-latest
     steps:
-      - name: Trigger Daily Digest
+      - name: Trigger Daily Digest Check
         run: |
-          curl -X GET "${{ secrets.APP_URL }}/trigger" \
+          if [ -z "$APP_URL" ]; then
+            echo "APP_URL environment variable is not set"
+            exit 1
+          fi
+          
+          # Remove any trailing slash and ensure proper URL format
+          APP_URL="${APP_URL%/}"
+          
+          echo "Triggering digest check at: ${APP_URL}/trigger"
+          
+          curl -X GET "${APP_URL}/trigger" \
             -H "Content-Type: application/json" \
-            --fail --silent --show-error
+            -H "User-Agent: GitHub-Actions-Daily-Digest" \
+            --fail --silent --show-error \
+            --connect-timeout 30 \
+            --max-time 60
         env:
-          APP_URL: ${{ secrets.APP_URL }}
+          APP_URL: ${{ env.APP_URL }}
