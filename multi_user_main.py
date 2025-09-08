@@ -125,7 +125,14 @@ def should_send_digest_today(user: dict, user_time: datetime) -> bool:
         return True  # Never sent before
     
     try:
-        last_sent = datetime.fromisoformat(user['last_digest_sent'].replace('Z', '+00:00'))
+        raw = user.get('last_digest_sent')
+        # Ensure string type for parsing
+        if isinstance(raw, (bytes, bytearray)):
+            raw = raw.decode()
+        last_sent = datetime.fromisoformat(str(raw).replace('Z', '+00:00'))
+        # SQLite CURRENT_TIMESTAMP is naive (no tz); treat it as UTC
+        if last_sent.tzinfo is None:
+            last_sent = pytz.UTC.localize(last_sent)
         last_sent_user_tz = last_sent.astimezone(user_time.tzinfo)
         
         # Check if last digest was sent on a different date in user's timezone

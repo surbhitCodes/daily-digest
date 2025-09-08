@@ -84,7 +84,7 @@ def get_all_active_users() -> List[Dict]:
     cursor = conn.cursor()
     
     cursor.execute('''
-        SELECT id, email, slack_webhook_url, timezone, schedule_hour
+        SELECT id, email, slack_webhook_url, timezone, schedule_hour, last_digest_sent
         FROM users WHERE active = 1
     ''')
     
@@ -95,7 +95,8 @@ def get_all_active_users() -> List[Dict]:
             'email': row[1],
             'slack_webhook_url': row[2],
             'timezone': row[3],
-            'schedule_hour': row[4]
+            'schedule_hour': row[4],
+            'last_digest_sent': row[5]
         })
     
     conn.close()

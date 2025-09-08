@@ -9,14 +9,23 @@ on:
 jobs:
   trigger-digest:
     runs-on: ubuntu-latest
+    env:
+      APP_URL: ${{ secrets.APP_URL }}
+      APP_URL_VAR: ${{ vars.APP_URL }}
     steps:
       - name: Trigger Daily Digest Check
+        if: ${{ env.APP_URL != '' || env.APP_URL_VAR != '' }}
         run: |
-          if [ -z "$APP_URL" ]; then
-            echo "APP_URL environment variable is not set"
-            exit 1
+          # Prefer secret, then variable
+          if [ -z "$APP_URL" ] && [ -n "$APP_URL_VAR" ]; then
+            APP_URL="$APP_URL_VAR"
           fi
-          
+
+          if [ -z "$APP_URL" ]; then
+            echo "APP_URL is not set in secrets or variables. Skipping trigger."
+            exit 0
+          fi
+            
           # Remove any trailing slash and ensure proper URL format
           APP_URL="${APP_URL%/}"
           
@@ -28,5 +37,3 @@ jobs:
             --fail --silent --show-error \
             --connect-timeout 30 \
             --max-time 60
-        env:
-          APP_URL: ${{ env.APP_URL }}
