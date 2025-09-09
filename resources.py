@@ -11,5 +11,6 @@ RSS_FEEDS = [
     "https://javascriptweekly.com/rss",
     "https://www.fastapi.tiangolo.com/feed.xml",
     "https://huggingface.co/blog/feed.xml",
-    "https://feeds.feedburner.com/TheHackersNews"
+    "https://feeds.feedburner.com/TheHackersNews",
+    "https://feeds.acast.com/public/shows/e421d786-ec36-4148-aa99-7a3b2928a779",
 ]
