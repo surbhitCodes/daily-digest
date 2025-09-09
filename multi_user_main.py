@@ -13,6 +13,7 @@ import aiohttp
 from datetime import datetime
 import pytz
 import re
+from urllib.parse import urlparse
 
 scheduler = BackgroundScheduler()
 templates = Jinja2Templates(directory="templates")
@@ -33,6 +34,23 @@ async def lifespan(app: FastAPI):
     stop_scheduler()
 
 app = FastAPI(lifespan=lifespan, title="AI Daily Digest - Multi-User")
+
+def diversify_articles(articles: list, max_articles: int = 12) -> list:
+    """Select up to max_articles ensuring diversity across sources (round-robin)."""
+    by_source = {}
+    for a in articles:
+        src = a.get("source", "Unknown")
+        by_source.setdefault(src, []).append(a)
+    selected = []
+    while len(selected) < max_articles and any(by_source.values()):
+        for src in list(by_source.keys()):
+            bucket = by_source.get(src, [])
+            if bucket:
+                item = bucket.pop(0)
+                selected.append({"title": item["title"], "link": item["link"]})
+                if len(selected) >= max_articles:
+                    break
+    return selected
 
 async def select_top_articles_with_ai(articles: list, max_articles: int = 12) -> list:
     """Use AI to select the most interesting and relevant articles"""
@@ -87,8 +105,8 @@ Respond with ONLY the numbers of the selected articles (e.g., "1,3,7,12,15,18,22
             if not selected_indices:
                 raise ValueError("No valid indices parsed")
         except Exception as parse_err:
-            print(f"[AI Selection] Parse error: {parse_err}. Falling back to first {max_articles}.")
-            selected_indices = list(range(min(max_articles, len(articles))))
+            print(f"[AI Selection] Parse error: {parse_err}. Falling back to diverse selection of {max_articles}.")
+            return diversify_articles(articles, max_articles)
         
         selected_articles = []
         for i in selected_indices[:max_articles]:
@@ -102,7 +120,7 @@ Respond with ONLY the numbers of the selected articles (e.g., "1,3,7,12,15,18,22
         
     except Exception as e:
         print(f"Error in AI article selection: {e}")
-        return [{"title": a["title"], "link": a["link"]} for a in articles[:max_articles]]
+        return diversify_articles(articles, max_articles)
 
 async def fetch_articles_for_user(user_id: str):
     """Fetch articles from user's configured RSS feeds"""
@@ -112,8 +130,15 @@ async def fetch_articles_for_user(user_id: str):
     for feed in feeds:
         try:
             feed_url = feed['url'] if isinstance(feed, dict) else feed
-            feed_name = feed['name'] if isinstance(feed, dict) else "Unknown Feed"
-            parsed_feed = feedparser.parse(feed_url)
+            parsed_feed = feedparser.parse(feed_url, request_headers={"User-Agent": "AI-Daily-Digest/1.0"})
+            feed_name = feed.get('name') if isinstance(feed, dict) else None
+            if not feed_name:
+                feed_name = getattr(parsed_feed.feed, 'title', None)
+            if not feed_name:
+                try:
+                    feed_name = urlparse(feed_url).netloc
+                except Exception:
+                    feed_name = "Unknown Feed"
             
             for entry in parsed_feed.entries[:20]:
                 article = {

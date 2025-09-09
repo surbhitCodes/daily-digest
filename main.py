@@ -9,6 +9,7 @@ import asyncio
 import os
 from fastapi.responses import HTMLResponse
 import re
+from urllib.parse import urlparse
 
 scheduler = BackgroundScheduler()
 
@@ -26,6 +27,24 @@ async def lifespan(app: FastAPI):
     stop_scheduler()
 
 app = FastAPI(lifespan=lifespan)
+
+def diversify_articles(articles: list, max_articles: int = 12) -> list:
+    """Select up to max_articles ensuring diversity across sources (round-robin)."""
+    by_source = {}
+    for a in articles:
+        src = a.get("source", "Unknown")
+        by_source.setdefault(src, []).append(a)
+    selected = []
+    # Round-robin pick one from each source until we reach the limit
+    while len(selected) < max_articles and any(by_source.values()):
+        for src in list(by_source.keys()):
+            bucket = by_source.get(src, [])
+            if bucket:
+                item = bucket.pop(0)
+                selected.append({"title": item["title"], "link": item["link"]})
+                if len(selected) >= max_articles:
+                    break
+    return selected
 
 async def select_top_articles_with_ai(articles: list, max_articles: int = 12) -> list:
     """Use AI to select the most interesting and relevant articles"""
@@ -80,8 +99,8 @@ Respond with ONLY the numbers of the selected articles (e.g., "1,3,7,12,15,18,22
             if not selected_indices:
                 raise ValueError("No valid indices parsed")
         except Exception as parse_err:
-            print(f"[AI Selection] Parse error: {parse_err}. Falling back to first {max_articles}.")
-            selected_indices = list(range(min(max_articles, len(articles))))
+            print(f"[AI Selection] Parse error: {parse_err}. Falling back to diverse selection of {max_articles}.")
+            return diversify_articles(articles, max_articles)
         
         selected_articles = []
         for i in selected_indices[:max_articles]:
@@ -95,14 +114,19 @@ Respond with ONLY the numbers of the selected articles (e.g., "1,3,7,12,15,18,22
         
     except Exception as e:
         print(f"Error in AI article selection: {e}")
-        return [{"title": a["title"], "link": a["link"]} for a in articles[:max_articles]]
+        return diversify_articles(articles, max_articles)
 
 async def fetch_articles():
     articles = []
     for i, url in enumerate(RSS_FEEDS):
         try:
-            feed = feedparser.parse(url)
-            source_name = f"Feed {i+1}"  
+            feed = feedparser.parse(url, request_headers={"User-Agent": "AI-Daily-Digest/1.0"})
+            source_name = getattr(feed.feed, 'title', None)
+            if not source_name:
+                try:
+                    source_name = urlparse(url).netloc
+                except Exception:
+                    source_name = f"Feed {i+1}"
             
             for entry in feed.entries[:20]:
                 article = {
