@@ -3,7 +3,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from contextlib import asynccontextmanager
 import feedparser
-from summarizer import summarize_articles
+from summarizer import summarize_articles, get_openai_client
 from database_postgres import add_user, get_all_active_users, get_user_feeds, update_last_digest_sent, get_user_by_id, add_user_feed, remove_user_feed, get_all_user_feeds
 from notifier import send_simple_email
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -12,6 +12,7 @@ import os
 import aiohttp
 from datetime import datetime
 import pytz
+import re
 
 scheduler = BackgroundScheduler()
 templates = Jinja2Templates(directory="templates")
@@ -39,12 +40,10 @@ async def select_top_articles_with_ai(articles: list, max_articles: int = 12) ->
         return [{"title": a["title"], "link": a["link"]} for a in articles]
     
     try:
-        # Prepare article summaries for AI analysis
         article_summaries = []
         for i, article in enumerate(articles):
             summary = f"{i+1}. **{article['title']}** (Source: {article['source']})\n"
             if article['summary']:
-                # Truncate summary to avoid token limits
                 summary += f"   Summary: {article['summary'][:200]}...\n"
             article_summaries.append(summary)
         
@@ -65,26 +64,32 @@ Articles:
 
 Respond with ONLY the numbers of the selected articles (e.g., "1,3,7,12,15,18,22,25,28,30,33,36"), separated by commas, in order of importance."""
 
-        client = OpenAI()
-        response = await client.chat.completions.create(
-            model="gpt-4o-mini",
+        client = get_openai_client()
+        response = client.chat.completions.create(
+            model="gpt-5-mini",
             messages=[{"role": "user", "content": prompt}],
             max_tokens=100,
             temperature=0.3
         )
         
-        # Parse the response to get selected article indices
         selected_indices = []
         try:
-            indices_str = response.choices[0].message.content.strip()
-            selected_indices = [int(x.strip()) - 1 for x in indices_str.split(',')]
-            # Validate indices are within range
-            selected_indices = [i for i in selected_indices if 0 <= i < len(articles)]
-        except:
-            # Fallback to first articles if parsing fails
+            raw = response.choices[0].message.content.strip()
+            print(f"[AI Selection] Raw indices response: {raw}")
+            nums = re.findall(r"\d+", raw)
+            selected_indices = []
+            seen = set()
+            for n in nums:
+                i = int(n) - 1
+                if 0 <= i < len(articles) and i not in seen:
+                    selected_indices.append(i)
+                    seen.add(i)
+            if not selected_indices:
+                raise ValueError("No valid indices parsed")
+        except Exception as parse_err:
+            print(f"[AI Selection] Parse error: {parse_err}. Falling back to first {max_articles}.")
             selected_indices = list(range(min(max_articles, len(articles))))
         
-        # Return selected articles
         selected_articles = []
         for i in selected_indices[:max_articles]:
             article = articles[i]
@@ -97,22 +102,11 @@ Respond with ONLY the numbers of the selected articles (e.g., "1,3,7,12,15,18,22
         
     except Exception as e:
         print(f"Error in AI article selection: {e}")
-        # Fallback to first articles
         return [{"title": a["title"], "link": a["link"]} for a in articles[:max_articles]]
 
 async def fetch_articles_for_user(user_id: str):
     """Fetch articles from user's configured RSS feeds"""
     feeds = get_user_feeds(user_id)
-    if not feeds:
-        # Fallback to default feeds if user has none
-        feeds = [
-            {"url": "https://www.langchain.dev/rss.xml", "name": "LangChain Blog"},
-            {"url": "https://openai.com/blog/rss.xml", "name": "OpenAI Blog"},
-            {"url": "https://pythonweekly.com/rss", "name": "Python Weekly"},
-            {"url": "https://huggingface.co/blog/feed.xml", "name": "Hugging Face Blog"},
-            {"url": "https://techcrunch.com/feed/", "name": "TechCrunch"},
-            {"url": "https://feeds.arstechnica.com/arstechnica/index", "name": "Ars Technica"}
-        ]
     
     articles = []
     for feed in feeds:
@@ -121,7 +115,6 @@ async def fetch_articles_for_user(user_id: str):
             feed_name = feed['name'] if isinstance(feed, dict) else "Unknown Feed"
             parsed_feed = feedparser.parse(feed_url)
             
-            # Get all recent articles (up to 20 per feed to avoid overwhelming the AI)
             for entry in parsed_feed.entries[:20]:
                 article = {
                     "title": entry.title,
@@ -135,7 +128,6 @@ async def fetch_articles_for_user(user_id: str):
             print(f"Error fetching feed {feed_url}: {e}")
             continue
     
-    # Use AI to select the most interesting articles
     if articles:
         selected_articles = await select_top_articles_with_ai(articles)
         return selected_articles
@@ -151,7 +143,6 @@ async def send_digest_to_user(user: dict):
         
         summary = await summarize_articles(articles)
         
-        # Send to user's Slack webhook with proper formatting
         slack_message = f"🤖 *Daily AI/Tech Digest for {user['email']}*\n\n{summary}"
         
         async with aiohttp.ClientSession() as session:
@@ -186,12 +177,10 @@ async def hourly_digest_check():
             user_tz = pytz.timezone(user['timezone'])
             user_time = current_utc.astimezone(user_tz)
             
-            # Check if it's the user's scheduled hour and they haven't received today's digest
             if user_time.hour == user['schedule_hour'] and should_send_digest_today(user, user_time):
                 print(f"Sending digest to {user['email']} at {user_time.strftime('%Y-%m-%d %H:%M %Z')}")
                 await asyncio.wait_for(send_digest_to_user(user), timeout=30.0)
             else:
-                # Log why digest wasn't sent for debugging
                 if user_time.hour != user['schedule_hour']:
                     print(f"Skipping {user['email']}: current hour {user_time.hour} != scheduled hour {user['schedule_hour']}")
                 else:
@@ -209,16 +198,13 @@ def should_send_digest_today(user: dict, user_time: datetime) -> bool:
     
     try:
         raw = user.get('last_digest_sent')
-        # Ensure string type for parsing
         if isinstance(raw, (bytes, bytearray)):
             raw = raw.decode()
         last_sent = datetime.fromisoformat(str(raw).replace('Z', '+00:00'))
-        # SQLite CURRENT_TIMESTAMP is naive (no tz); treat it as UTC
         if last_sent.tzinfo is None:
             last_sent = pytz.UTC.localize(last_sent)
         last_sent_user_tz = last_sent.astimezone(user_time.tzinfo)
         
-        # Check if last digest was sent on a different date in user's timezone
         return last_sent_user_tz.date() != user_time.date()
     except Exception as e:
         print(f"Error parsing last_digest_sent for {user['email']}: {e}")
@@ -245,11 +231,9 @@ async def register_user(
 ):
     """Register a new user"""
     try:
-        # Validate Slack webhook URL
         if not slack_webhook_url.startswith("https://hooks.slack.com/"):
             raise HTTPException(400, "Invalid Slack webhook URL")
         
-        # Validate schedule hour
         if not 0 <= schedule_hour <= 23:
             raise HTTPException(400, "Schedule hour must be between 0-23")
         

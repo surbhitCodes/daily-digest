@@ -2,13 +2,13 @@ from fastapi import FastAPI
 from contextlib import asynccontextmanager
 from resources import RSS_FEEDS
 import feedparser
-from summarizer import summarize_articles
+from summarizer import summarize_articles, get_openai_client
 from notifier import notify
 from apscheduler.schedulers.background import BackgroundScheduler
 import asyncio
 import os
 from fastapi.responses import HTMLResponse
-from openai import OpenAI
+import re
 
 scheduler = BackgroundScheduler()
 
@@ -33,12 +33,10 @@ async def select_top_articles_with_ai(articles: list, max_articles: int = 12) ->
         return [{"title": a["title"], "link": a["link"]} for a in articles]
     
     try:
-        # Prepare article summaries for AI analysis
         article_summaries = []
         for i, article in enumerate(articles):
             summary = f"{i+1}. **{article['title']}** (Source: {article['source']})\n"
             if article['summary']:
-                # Truncate summary to avoid token limits
                 summary += f"   Summary: {article['summary'][:200]}...\n"
             article_summaries.append(summary)
         
@@ -59,26 +57,32 @@ Articles:
 
 Respond with ONLY the numbers of the selected articles (e.g., "1,3,7,12,15,18,22,25,28,30,33,36"), separated by commas, in order of importance."""
 
-        client = OpenAI()
-        response = await client.chat.completions.create(
-            model="gpt-4o-mini",
+        client = get_openai_client()
+        response = client.chat.completions.create(
+            model="gpt-5-mini",
             messages=[{"role": "user", "content": prompt}],
             max_tokens=100,
             temperature=0.3
         )
         
-        # Parse the response to get selected article indices
         selected_indices = []
         try:
-            indices_str = response.choices[0].message.content.strip()
-            selected_indices = [int(x.strip()) - 1 for x in indices_str.split(',')]
-            # Validate indices are within range
-            selected_indices = [i for i in selected_indices if 0 <= i < len(articles)]
-        except:
-            # Fallback to first articles if parsing fails
+            raw = response.choices[0].message.content.strip()
+            print(f"[AI Selection] Raw indices response: {raw}")
+            nums = re.findall(r"\d+", raw)
+            selected_indices = []
+            seen = set()
+            for n in nums:
+                i = int(n) - 1
+                if 0 <= i < len(articles) and i not in seen:
+                    selected_indices.append(i)
+                    seen.add(i)
+            if not selected_indices:
+                raise ValueError("No valid indices parsed")
+        except Exception as parse_err:
+            print(f"[AI Selection] Parse error: {parse_err}. Falling back to first {max_articles}.")
             selected_indices = list(range(min(max_articles, len(articles))))
         
-        # Return selected articles
         selected_articles = []
         for i in selected_indices[:max_articles]:
             article = articles[i]
@@ -91,7 +95,6 @@ Respond with ONLY the numbers of the selected articles (e.g., "1,3,7,12,15,18,22
         
     except Exception as e:
         print(f"Error in AI article selection: {e}")
-        # Fallback to first articles
         return [{"title": a["title"], "link": a["link"]} for a in articles[:max_articles]]
 
 async def fetch_articles():
@@ -99,9 +102,8 @@ async def fetch_articles():
     for i, url in enumerate(RSS_FEEDS):
         try:
             feed = feedparser.parse(url)
-            source_name = f"Feed {i+1}"  # Simple source naming
+            source_name = f"Feed {i+1}"  
             
-            # Get all recent articles (up to 20 per feed)
             for entry in feed.entries[:20]:
                 article = {
                     "title": entry.title,
@@ -115,7 +117,6 @@ async def fetch_articles():
             print(f"Error fetching feed {url}: {e}")
             continue
     
-    # Use AI to select the most interesting articles
     if articles:
         selected_articles = await select_top_articles_with_ai(articles)
         return selected_articles
