@@ -14,26 +14,47 @@ jobs:
       APP_URL_VAR: ${{ vars.APP_URL }}
     steps:
       - name: Trigger Daily Digest Check
-        if: ${{ env.APP_URL != '' || env.APP_URL_VAR != '' }}
         run: |
           # Prefer secret, then variable
           if [ -z "$APP_URL" ] && [ -n "$APP_URL_VAR" ]; then
             APP_URL="$APP_URL_VAR"
+            echo "Using APP_URL from repository variable"
+          elif [ -n "$APP_URL" ]; then
+            echo "Using APP_URL from repository secret"
           fi
 
           if [ -z "$APP_URL" ]; then
-            echo "APP_URL is not set in secrets or variables. Skipping trigger."
+            echo "❌ APP_URL is not set in secrets or variables. Skipping trigger."
+            echo "Please set APP_URL as a repository secret or variable in GitHub Settings."
             exit 0
           fi
             
           # Remove any trailing slash and ensure proper URL format
           APP_URL="${APP_URL%/}"
           
-          echo "Triggering digest check at: ${APP_URL}/trigger"
+          echo "🚀 Triggering digest check at: ${APP_URL}/trigger"
+          echo "📅 Current time: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
           
-          curl -X GET "${APP_URL}/trigger" \
+          # Make the request and capture both response and status code
+          response=$(curl -X GET "${APP_URL}/trigger" \
             -H "Content-Type: application/json" \
             -H "User-Agent: GitHub-Actions-Daily-Digest" \
-            --fail --silent --show-error \
+            -w "\n%{http_code}" \
             --connect-timeout 30 \
-            --max-time 60
+            --max-time 60 \
+            --show-error \
+            2>&1)
+          
+          # Extract status code from response
+          status_code=$(echo "$response" | tail -n1)
+          response_body=$(echo "$response" | head -n -1)
+          
+          echo "📊 HTTP Status: $status_code"
+          echo "📝 Response: $response_body"
+          
+          if [ "$status_code" -ge 200 ] && [ "$status_code" -lt 300 ]; then
+            echo "✅ Digest trigger completed successfully"
+          else
+            echo "❌ Digest trigger failed with status $status_code"
+            exit 1
+          fi
