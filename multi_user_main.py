@@ -4,7 +4,7 @@ from fastapi.templating import Jinja2Templates
 from contextlib import asynccontextmanager
 import feedparser
 from summarizer import summarize_articles
-from database import add_user, get_all_active_users, get_user_feeds, update_last_digest_sent, get_user_by_id, add_user_feed, remove_user_feed, get_all_user_feeds
+from database_postgres import add_user, get_all_active_users, get_user_feeds, update_last_digest_sent, get_user_by_id, add_user_feed, remove_user_feed, get_all_user_feeds
 from notifier import send_simple_email
 from apscheduler.schedulers.background import BackgroundScheduler
 import asyncio
@@ -281,29 +281,27 @@ async def get_stats():
 @app.get("/debug/database")
 async def debug_database():
     """Debug database status"""
-    import sqlite3
     import os
+    from database_postgres import get_db_connection
     
-    db_path = os.getenv("DATABASE_URL", "users.db")
+    db_url = os.getenv("DATABASE_URL", "users.db")
+    is_postgres = db_url.startswith("postgres")
     
     try:
-        # Check if database file exists
-        db_exists = os.path.exists(db_path)
-        
-        if not db_exists:
-            return {
-                "database_file_exists": False,
-                "database_path": db_path,
-                "message": "Database file not found"
-            }
-        
-        # Connect and get table info
-        conn = sqlite3.connect(db_path)
+        conn = get_db_connection()
         cursor = conn.cursor()
         
-        # Get table names
-        cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
-        tables = [row[0] for row in cursor.fetchall()]
+        if is_postgres:
+            # PostgreSQL queries
+            cursor.execute("""
+                SELECT table_name FROM information_schema.tables 
+                WHERE table_schema = 'public'
+            """)
+            tables = [row[0] for row in cursor.fetchall()]
+        else:
+            # SQLite queries
+            cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
+            tables = [row[0] for row in cursor.fetchall()]
         
         # Get user count
         user_count = 0
@@ -320,8 +318,8 @@ async def debug_database():
         conn.close()
         
         return {
-            "database_file_exists": True,
-            "database_path": db_path,
+            "database_type": "PostgreSQL" if is_postgres else "SQLite",
+            "database_url": db_url if not is_postgres else "PostgreSQL (URL hidden)",
             "tables": tables,
             "user_count": user_count,
             "feed_count": feed_count,
@@ -330,10 +328,10 @@ async def debug_database():
         
     except Exception as e:
         return {
-            "database_file_exists": db_exists,
-            "database_path": db_path,
+            "database_type": "PostgreSQL" if is_postgres else "SQLite",
+            "database_url": db_url if not is_postgres else "PostgreSQL (URL hidden)",
             "error": str(e),
-            "message": "Database error"
+            "message": "Database connection error"
         }
 
 if __name__ == "__main__":
