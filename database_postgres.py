@@ -25,6 +25,15 @@ def get_db_connection():
         import sqlite3
         return sqlite3.connect(database_url or "users.db")
 
+def is_postgres():
+    """Check if using PostgreSQL"""
+    database_url = os.getenv("DATABASE_URL", "")
+    return database_url.startswith("postgres")
+
+def get_placeholder():
+    """Get correct SQL placeholder for current database"""
+    return "%s" if is_postgres() else "?"
+
 def init_db():
     """Initialize the database with user tables"""
     conn = get_db_connection()
@@ -95,11 +104,20 @@ def add_user(email: str, slack_webhook_url: str, timezone: str = "UTC", schedule
     conn = get_db_connection()
     cursor = conn.cursor()
     
+    database_url = os.getenv("DATABASE_URL", "")
+    is_postgres = database_url.startswith("postgres")
+    
     try:
-        cursor.execute('''
-            INSERT INTO users (id, email, slack_webhook_url, timezone, schedule_hour)
-            VALUES (%s, %s, %s, %s, %s)
-        ''', (user_id, email, slack_webhook_url, timezone, schedule_hour))
+        if is_postgres:
+            cursor.execute('''
+                INSERT INTO users (id, email, slack_webhook_url, timezone, schedule_hour)
+                VALUES (%s, %s, %s, %s, %s)
+            ''', (user_id, email, slack_webhook_url, timezone, schedule_hour))
+        else:
+            cursor.execute('''
+                INSERT INTO users (id, email, slack_webhook_url, timezone, schedule_hour)
+                VALUES (?, ?, ?, ?, ?)
+            ''', (user_id, email, slack_webhook_url, timezone, schedule_hour))
         
         # Add default feeds for new user
         default_feeds = [
@@ -115,12 +133,21 @@ def add_user(email: str, slack_webhook_url: str, timezone: str = "UTC", schedule
             ("https://news.mit.edu/topic/mitmachine-learning-rss.xml", "MIT ML News")
         ]
         
+        database_url = os.getenv("DATABASE_URL", "")
+        is_postgres = database_url.startswith("postgres")
+        
         for feed_url, feed_name in default_feeds:
-            cursor.execute('''
-                INSERT INTO user_feeds (user_id, feed_url, feed_name)
-                VALUES (%s, %s, %s)
-                ON CONFLICT (user_id, feed_url) DO NOTHING
-            ''', (user_id, feed_url, feed_name))
+            if is_postgres:
+                cursor.execute('''
+                    INSERT INTO user_feeds (user_id, feed_url, feed_name)
+                    VALUES (%s, %s, %s)
+                    ON CONFLICT (user_id, feed_url) DO NOTHING
+                ''', (user_id, feed_url, feed_name))
+            else:
+                cursor.execute('''
+                    INSERT OR IGNORE INTO user_feeds (user_id, feed_url, feed_name)
+                    VALUES (?, ?, ?)
+                ''', (user_id, feed_url, feed_name))
         
         conn.commit()
         return user_id
@@ -137,9 +164,10 @@ def get_all_active_users() -> List[Dict]:
     conn = get_db_connection()
     cursor = conn.cursor()
     
-    cursor.execute('''
+    placeholder = get_placeholder()
+    cursor.execute(f'''
         SELECT id, email, slack_webhook_url, timezone, schedule_hour, last_digest_sent
-        FROM users WHERE active = %s
+        FROM users WHERE active = {placeholder}
     ''', (True,))
     
     users = []
