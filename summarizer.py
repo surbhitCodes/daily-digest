@@ -3,7 +3,13 @@ import os
 from dotenv import load_dotenv
 
 load_dotenv()
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
+def get_openai_client():
+    """Get OpenAI client with proper error handling"""
+    api_key = os.getenv("OPENAI_API_KEY")
+    if not api_key:
+        raise ValueError("OPENAI_API_KEY environment variable is required")
+    return OpenAI(api_key=api_key)
 
 async def summarize_articles(articles):
     # Create a more structured prompt that preserves links
@@ -23,6 +29,7 @@ Articles to summarize:
 
 Please maintain this format exactly and include all the links."""
     
+    client = get_openai_client()
     response = client.chat.completions.create(
         model="gpt-4",
         messages=[{"role": "user", "content": prompt}],
